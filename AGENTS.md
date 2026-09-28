@@ -22,4 +22,6 @@ The earliest update that pointed `HEAD` or a local branch at the commit from `co
 
 ## Tests and deploys
 
+The wire types are rendered to TypeScript in `ts/model.ts` (`@kayushkin/work-graph-store-types`, which bridge-ui links) by `./generate-ts.sh` from the files `tygo.yaml` names; run it after changing a wire type and commit the result. Those files hold some internals too, and tygo renders them; nothing reads them.
+
 `go test ./...` runs `hook_test.go`, which builds the real hook, makes commits in scratch repos as two sessions (worktree, rebase, fast-forward merge) and checks the credits. Deploy only with `./deploy.sh`; it replaces the hook binary by rename, since any git command on the host may be running it.
