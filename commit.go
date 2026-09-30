@@ -97,7 +97,12 @@ func readCommit(ctx context.Context, repositoryPath, sha string) (Commit, error)
 	if parents == nil {
 		parents = []string{}
 	}
-	return Commit{SHA: fields[0], Parents: parents, CommittedAt: committedAt, AuthorName: fields[3], Subject: fields[4]}, nil
+	output, err = git(ctx, repositoryPath, "for-each-ref", "--count=1", "--format=%(refname)", "--contains", fullSHA, "refs/remotes/")
+	if err != nil {
+		return Commit{}, err
+	}
+	return Commit{SHA: fields[0], Parents: parents, CommittedAt: committedAt, AuthorName: fields[3], Subject: fields[4],
+		OnRemoteBranch: strings.TrimSpace(output) != ""}, nil
 }
 
 // RepoByName returns the repo repo-store has under name, or an error wrapping

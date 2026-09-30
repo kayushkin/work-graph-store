@@ -90,6 +90,24 @@ func TestCommitsByMentionFindsTheCommitAndItsRepo(t *testing.T) {
 		}
 	}
 
+	// origin/main holds the first commit only: the second was never pushed.
+	run("update-ref", "refs/remotes/origin/main", first)
+	if _, answer := get("dash@" + first[:7]); !answer.Commit.OnRemoteBranch {
+		t.Errorf("the pushed commit reads as not on a remote branch")
+	}
+	if _, answer := get("dash@" + second[:7]); answer.Commit.OnRemoteBranch {
+		t.Errorf("the unpushed commit reads as on a remote branch")
+	}
+	graph, err := BuildGraph(t.Context(), store, repo, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, commit := range graph.Commits {
+		if commit.OnRemoteBranch != (commit.SHA == first) {
+			t.Errorf("graph: %q on_remote_branch = %v", commit.Subject, commit.OnRemoteBranch)
+		}
+	}
+
 	for mention, want := range map[string]int{
 		"nope@" + second[:7]:         http.StatusNotFound,   // no such repo
 		"someone/dash@" + second[:7]: http.StatusNotFound,   // no repo at that GitHub page

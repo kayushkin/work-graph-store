@@ -20,6 +20,10 @@ type Commit struct {
 	Subject     string   `json:"subject"`
 	// MadeBy is nil when no session on this host is known to have made it.
 	MadeBy *CommitAuthorship `json:"made_by"`
+	// OnRemoteBranch says a remote-tracking branch contains the commit, so it
+	// was pushed (as of the clone's last fetch) and a link to it on the
+	// repo's host will not 404.
+	OnRemoteBranch bool `json:"on_remote_branch"`
 }
 
 // BranchSession is one session's part in a branch's history.
@@ -119,6 +123,20 @@ func BuildGraph(ctx context.Context, store *Store, repo Repo, maxCommits int) (G
 		}
 		graph.Commits = append(graph.Commits, commit)
 	}
+	// Every listed commit is on a local or a remote-tracking branch, so one
+	// that is on no remote-tracking branch is one of these.
+	output, err = git(ctx, repo.Path, "rev-list", "--branches", "--not", "--remotes")
+	if err != nil {
+		return graph, err
+	}
+	localOnly := map[string]bool{}
+	for _, sha := range strings.Fields(output) {
+		localOnly[sha] = true
+	}
+	for index := range graph.Commits {
+		graph.Commits[index].OnRemoteBranch = !localOnly[graph.Commits[index].SHA]
+	}
+
 	authorships, err := store.CommitAuthorships(repo.ID, firstParents)
 	if err != nil {
 		return graph, err
