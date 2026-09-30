@@ -10,3 +10,4 @@ packages:
       - "store.go"
       - "server.go"
       - "ingest.go"
+      - "commit.go"

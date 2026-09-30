@@ -27,6 +27,7 @@ func RegisterHandlers(mux *http.ServeMux, handlers *Handlers) {
 	mux.HandleFunc("GET /ref-updates", handlers.listRefUpdates)
 	mux.HandleFunc("GET /repos/{repo_store_id}/graph", handlers.repoGraph)
 	mux.HandleFunc("GET /activity", handlers.activity)
+	mux.HandleFunc("GET /commits/{mention...}", handlers.commitByMention)
 }
 
 func writeJSON(writer http.ResponseWriter, status int, value any) {
@@ -44,6 +45,12 @@ func writeError(writer http.ResponseWriter, status int, err error) {
 func statusOf(err error) int {
 	if errors.Is(err, ErrNotFound) {
 		return http.StatusNotFound
+	}
+	if errors.Is(err, errBadRequest) {
+		return http.StatusBadRequest
+	}
+	if errors.Is(err, ErrAmbiguous) {
+		return http.StatusConflict
 	}
 	return http.StatusInternalServerError
 }
@@ -118,6 +125,15 @@ func (handlers *Handlers) repoGraph(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	writeJSON(writer, http.StatusOK, graph)
+}
+
+func (handlers *Handlers) commitByMention(writer http.ResponseWriter, request *http.Request) {
+	answer, err := ResolveCommitMention(request.Context(), handlers.Store, handlers.RepoStore, request.PathValue("mention"))
+	if err != nil {
+		writeError(writer, statusOf(err), err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, answer)
 }
 
 // RepoActivity is one repo's local branches that sessions touched recently.

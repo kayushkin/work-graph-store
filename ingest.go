@@ -107,6 +107,9 @@ type Repo struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 	Path string `json:"path"`
+	// GitHubURL is repo-store's github_url: the repo's page on GitHub, or ""
+	// when its remote is not there.
+	GitHubURL string `json:"github_url,omitempty"`
 }
 
 // RepoStoreClient asks repo-store about repos.
