@@ -27,6 +27,7 @@ func RegisterHandlers(mux *http.ServeMux, handlers *Handlers) {
 	mux.HandleFunc("GET /ref-updates", handlers.listRefUpdates)
 	mux.HandleFunc("GET /repos/{repo_store_id}/graph", handlers.repoGraph)
 	mux.HandleFunc("GET /activity", handlers.activity)
+	mux.HandleFunc("GET /session-repos", handlers.sessionRepos)
 	mux.HandleFunc("GET /commits/{mention...}", handlers.commitByMention)
 }
 
@@ -262,4 +263,30 @@ func shortSHA(sha string) string {
 		return sha[:10]
 	}
 	return sha
+}
+
+// sessionRepos answers, for every session, how many refs it moved in each
+// repo since since_unix_nano (required, so a caller always says how far back).
+func (handlers *Handlers) sessionRepos(writer http.ResponseWriter, request *http.Request) {
+	for name := range request.URL.Query() {
+		if name != "since_unix_nano" {
+			writeError(writer, http.StatusBadRequest, fmt.Errorf("unknown parameter %q", name))
+			return
+		}
+	}
+	if request.URL.Query().Get("since_unix_nano") == "" {
+		writeError(writer, http.StatusBadRequest, errors.New("since_unix_nano is required"))
+		return
+	}
+	since, err := positiveIntegerParameter(request, "since_unix_nano", 0, 1<<62)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err)
+		return
+	}
+	repos, err := handlers.Store.SessionRepos(since)
+	if err != nil {
+		writeError(writer, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"session_repos": repos})
 }

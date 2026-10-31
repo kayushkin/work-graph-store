@@ -225,3 +225,34 @@ func (store *Store) CommitAuthorships(repoStoreID int64, firstParents map[string
 	}
 	return authorships, nil
 }
+
+// SessionRepo is how many refs one session moved in one repo, and when it
+// last moved one: the measure of which repos a session has worked in.
+type SessionRepo struct {
+	SessionID      string `json:"session_id"`
+	RepoStoreID    int64  `json:"repo_store_id"`
+	RefUpdates     int64  `json:"ref_updates"`
+	LastAtUnixNano int64  `json:"last_at_unix_nano"`
+}
+
+// SessionRepos counts ref updates by session and repo since a time, for
+// every session that moved a ref in a repo repo-store knows. Git commands no
+// session ran, and repos repo-store has no id for, are left out.
+func (store *Store) SessionRepos(sinceUnixNano int64) ([]SessionRepo, error) {
+	rows, err := store.database.Query(`SELECT session_id, repo_store_id, COUNT(*), MAX(recorded_at_unix_nano) FROM ref_updates
+		WHERE session_id != '' AND repo_store_id IS NOT NULL AND recorded_at_unix_nano >= ?
+		GROUP BY session_id, repo_store_id ORDER BY session_id, repo_store_id`, sinceUnixNano)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	repos := []SessionRepo{}
+	for rows.Next() {
+		var repo SessionRepo
+		if err := rows.Scan(&repo.SessionID, &repo.RepoStoreID, &repo.RefUpdates, &repo.LastAtUnixNano); err != nil {
+			return nil, err
+		}
+		repos = append(repos, repo)
+	}
+	return repos, rows.Err()
+}
